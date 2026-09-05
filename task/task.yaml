@@ -1,0 +1,65 @@
+# Synthium Labs — task definition (human / reviewer facing)
+# Harbor runtime metadata lives in ../task.toml (required by `harbor run`).
+
+name: synthium/webhook-relay
+version: "1.0.0"
+framework: harbor-terminal-bench-2.0
+category: repository-level-debugging
+difficulty: medium
+language: python
+license: MIT
+
+authors:
+  - name: "[Your Full Name]"
+    email: "[your-email]"
+
+summary: >
+  Multi-file webhook relay debugging task: idempotency, raw-body HMAC,
+  inbound signature enforcement, and retry/backoff policy. Graded by
+  randomized behavioral integration tests under Harbor.
+
+# 1. What coding capability is being tested?
+capability: >
+  Repository-level debugging of a small Python HTTP service. The agent must
+  inspect multiple modules, reason about delivery semantics and crypto, and
+  apply coordinated fixes without a single-line “gotcha” patch.
+
+# 2. What does the agent need to accomplish?
+objective: >
+  Make POST /ingest satisfy the contracts in instruction.md: exactly-once
+  successful downstream delivery per Idempotency-Key, correct
+  X-Hub-Signature-256 over raw body (in and out), 401 when REQUIRE_SIGNATURE=1
+  and signature is missing/wrong, retry only transient failures with exponential
+  backoff, and 2xx-only success semantics.
+
+# 3. Why is the task non-trivial?
+non_trivial_because:
+  - Bugs are split across store.py, crypto.py, deliver.py, and server.py
+  - Partial fixes still fail the suite (all contracts must pass)
+  - Correct crypto is raw-body HMAC, not re-serialized JSON
+  - Retry policy has both positive (503) and negative (400) cases
+  - Instruction describes outcomes, not file-level patches
+
+# 4. How do we objectively know the agent succeeded?
+success_criteria: >
+  tests/test.sh runs pytest behavioral contracts against a live relay +
+  ephemeral mock downstream with randomized secrets/payloads, then writes
+  /logs/verifier/reward.txt (1 = pass, 0 = fail). Oracle must score 1;
+  starting/nop state must score 0.
+
+solvability:
+  starting_state: fail
+  reference_solution: pass
+  proof:
+    - "harbor run -p . -a nop     → reward 0.0"
+    - "harbor run -p . -a oracle  → reward 1.0"
+
+paths:
+  agent_instruction: instruction.md  # also mirrored at repo root for Harbor
+  harbor_config: ../task.toml
+  starting_repo: ../environment/repo/
+  dockerfile: ../environment/Dockerfile
+  reference_solution: ../solution/solve.sh
+  verifier: ../tests/test.sh
+  grader_attacks: ../analysis/grader_attacks.md
+  model_runs: ../analysis/model_runs.md
